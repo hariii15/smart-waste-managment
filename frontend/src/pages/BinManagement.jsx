@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from 'react';
-import { getBins, updateBin } from '../services/api';
+import { getBins, updateBin, markBinCollected } from '../services/api';
 
 function BinManagement() {
   const [bins, setBins] = useState([]);
@@ -7,6 +7,7 @@ function BinManagement() {
   const [error, setError] = useState(null);
   const [updatingBin, setUpdatingBin] = useState(null);
   const [newFillLevel, setNewFillLevel] = useState('');
+  const [collectingBin, setCollectingBin] = useState(null);
 
   useEffect(() => {
     loadBins();
@@ -56,6 +57,22 @@ function BinManagement() {
     } catch (err) {
       alert('Failed to update bin fill level');
       console.error('Update error:', err);
+    }
+  };
+
+  const handleMarkCollected = async (binDocId, binLabel) => {
+    const ok = confirm(`Mark ${binLabel} as collected? This will reset fill level to 0 and status to empty.`);
+    if (!ok) return;
+
+    try {
+      setCollectingBin(binDocId);
+      await markBinCollected(binDocId);
+      await loadBins();
+    } catch (err) {
+      alert('Failed to mark bin as collected');
+      console.error('Mark collected error:', err);
+    } finally {
+      setCollectingBin(null);
     }
   };
 
@@ -126,41 +143,52 @@ function BinManagement() {
                   }
                 </td>
                 <td>
-                  {updatingBin === bin.id ? (
-                    <div className="update-form">
-                      <input
-                        type="number"
-                        min="0"
-                        max="100"
-                        value={newFillLevel}
-                        onChange={(e) => setNewFillLevel(e.target.value)}
-                        placeholder="0-100"
-                        className="fill-input"
-                      />
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    {updatingBin === bin.id ? (
+                      <div className="update-form">
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={newFillLevel}
+                          onChange={(e) => setNewFillLevel(e.target.value)}
+                          placeholder="0-100"
+                          className="fill-input"
+                        />
+                        <button
+                          onClick={() => handleUpdateFillLevel(bin.id)}
+                          className="btn-small"
+                        >
+                          Update
+                        </button>
+                        <button
+                          onClick={() => {
+                            setUpdatingBin(null);
+                            setNewFillLevel('');
+                          }}
+                          className="btn-small secondary"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
                       <button
-                        onClick={() => handleUpdateFillLevel(bin.id)}
+                        onClick={() => setUpdatingBin(bin.id)}
                         className="btn-small"
                       >
-                        Update
+                        Update Fill Level
                       </button>
-                      <button
-                        onClick={() => {
-                          setUpdatingBin(null);
-                          setNewFillLevel('');
-                        }}
-                        className="btn-small secondary"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  ) : (
+                    )}
+
                     <button
-                      onClick={() => setUpdatingBin(bin.id)}
-                      className="btn-small"
+                      onClick={() => handleMarkCollected(bin.id, bin.binID || bin.id)}
+                      className="btn-small secondary"
+                      disabled={collectingBin === bin.id}
+                      title="Reset fill level to 0 and status to empty"
                     >
-                      Update Fill Level
+                      {collectingBin === bin.id ? 'Collecting…' : 'Mark as collected'}
                     </button>
-                  )}
+                  </div>
                 </td>
               </tr>
             ))}
@@ -172,6 +200,7 @@ function BinManagement() {
         <h3>Instructions</h3>
         <ul>
           <li>Click "Update Fill Level" to modify a bin's current fill percentage</li>
+          <li>Click <strong>"Mark as collected"</strong> after collection to reset the bin to <code>empty</code> / <code>0%</code></li>
           <li>Enter a value between 0-100%</li>
           <li>The system will automatically update the bin status based on the fill level</li>
           <li>Critical alerts are triggered for bins above 90% capacity</li>

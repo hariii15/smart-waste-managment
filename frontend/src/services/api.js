@@ -70,6 +70,25 @@ export const updateBin = async (binId, fillLevel) => {
   }
 };
 
+// Mark bin as collected: reset fill level + status
+export const markBinCollected = async (binDocId) => {
+  try {
+    requireSignedIn();
+    const binRef = doc(db, 'bins', binDocId);
+    await updateDoc(binRef, {
+      fillLevel: 0,
+      status: 'empty',
+      collectedAt: new Date().toISOString(),
+      collectedBy: auth.currentUser.uid,
+      lastUpdated: new Date().toISOString(),
+    });
+    return { success: true };
+  } catch (error) {
+    console.error('Error marking bin collected:', error);
+    throw error;
+  }
+};
+
 // Get all routes
 export const getRoutes = async () => {
   try {
