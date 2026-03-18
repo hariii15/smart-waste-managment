@@ -1,0 +1,474 @@
+{
+  "info": {
+    "name": "Smart Waste Management API",
+    "description": "Complete API testing collection for Smart Waste Management System",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health Check",
+      "item": [
+        {
+          "name": "Server Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Bins Management",
+      "item": [
+        {
+          "name": "Update Bin Level (IoT Simulation)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"binID\": \"BIN-001\",\n  \"fillLevel\": 85,\n  \"location\": {\n    \"latitude\": 12.9716,\n    \"longitude\": 77.5946\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/bins/update-level",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "bins", "update-level"]
+            }
+          }
+        },
+        {
+          "name": "Trigger Full Alert (95% Fill)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"binID\": \"BIN-002\",\n  \"fillLevel\": 95,\n  \"location\": {\n    \"latitude\": 12.9720,\n    \"longitude\": 77.5950\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/bins/update-level",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "bins", "update-level"]
+            }
+          }
+        },
+        {
+          "name": "Get Heatmap Data",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/bins/heatmap",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "bins", "heatmap"]
+            }
+          }
+        },
+        {
+          "name": "Get Full Bins",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/bins/full",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "bins", "full"]
+            }
+          }
+        },
+        {
+          "name": "Get Bin Statistics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/bins/statistics",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "bins", "statistics"]
+            }
+          }
+        },
+        {
+          "name": "Update Bin Status",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"collecting\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/bins/BIN-001/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "bins", "BIN-001", "status"]
+            }
+          }
+        },
+        {
+          "name": "Bulk Update Bins",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"updates\": [\n    {\n      \"binID\": \"BIN-001\",\n      \"fillLevel\": 45,\n      \"location\": {\"latitude\": 12.9716, \"longitude\": 77.5946}\n    },\n    {\n      \"binID\": \"BIN-002\", \n      \"fillLevel\": 90,\n      \"location\": {\"latitude\": 12.9720, \"longitude\": 77.5950}\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/bins/bulk-update",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "bins", "bulk-update"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Route Optimization",
+      "item": [
+        {
+          "name": "Generate Optimized Route",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"driverId\": \"DRIVER_01\",\n  \"truckId\": \"TRUCK_KAR_01\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/routes/generate",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "routes", "generate"]
+            }
+          }
+        },
+        {
+          "name": "Get All Routes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/routes",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "routes"]
+            }
+          }
+        },
+        {
+          "name": "Update Route Status to Active",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"active\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/routes/{{routeId}}/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "routes", "{{routeId}}", "status"]
+            }
+          }
+        },
+        {
+          "name": "Complete Route",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"completed\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/routes/{{routeId}}/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "routes", "{{routeId}}", "status"]
+            }
+          }
+        },
+        {
+          "name": "Get Route Statistics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/routes/statistics",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "routes", "statistics"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "User Reports",
+      "item": [
+        {
+          "name": "Submit User Report",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reporterName\": \"John Doe\",\n  \"location\": {\n    \"latitude\": 12.9780,\n    \"longitude\": 77.6010\n  },\n  \"imageUrl\": \"https://images.unsplash.com/photo-1532996122724-e3c354a0b15b?w=400\",\n  \"description\": \"Overflowing bin near the park needs immediate attention!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/reports/submit",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "reports", "submit"]
+            }
+          }
+        },
+        {
+          "name": "Submit Anonymous Report",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": {\n    \"latitude\": 12.9695,\n    \"longitude\": 77.5890\n  },\n  \"imageUrl\": \"https://images.unsplash.com/photo-1611273426858-450d8e3c9fce?w=400\",\n  \"description\": \"Bad smell from garbage area\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/reports/submit",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "reports", "submit"]
+            }
+          }
+        },
+        {
+          "name": "Get All Reports",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/reports",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "reports"]
+            }
+          }
+        },
+        {
+          "name": "Get Pending Reports",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/reports?status=pending",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "reports"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "pending"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Verify Report",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isVerified\": true,\n  \"adminNotes\": \"Report verified and action taken\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/reports/{{reportId}}/verify",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "reports", "{{reportId}}", "verify"]
+            }
+          }
+        },
+        {
+          "name": "Get Report Statistics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/reports/statistics",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "reports", "statistics"]
+            }
+          }
+        },
+        {
+          "name": "Get Nearby Reports",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/reports/nearby?lat=12.9716&lng=77.5946&radius=2",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "reports", "nearby"],
+              "query": [
+                {
+                  "key": "lat",
+                  "value": "12.9716"
+                },
+                {
+                  "key": "lng",
+                  "value": "77.5946"
+                },
+                {
+                  "key": "radius",
+                  "value": "2"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Analytics & Dashboard",
+      "item": [
+        {
+          "name": "Get Analytics Summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/summary",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "summary"]
+            }
+          }
+        },
+        {
+          "name": "Get Real-time Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/realtime",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "realtime"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Error Testing",
+      "item": [
+        {
+          "name": "Test 404 Error",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/nonexistent",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "nonexistent"]
+            }
+          }
+        },
+        {
+          "name": "Invalid Fill Level (Error Test)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"binID\": \"BIN-001\",\n  \"fillLevel\": 150,\n  \"location\": {\n    \"latitude\": 12.9716,\n    \"longitude\": 77.5946\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/bins/update-level",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "bins", "update-level"]
+            }
+          }
+        },
+        {
+          "name": "Missing Required Fields (Error Test)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fillLevel\": 50\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/bins/update-level",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "bins", "update-level"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
