@@ -72,7 +72,7 @@ service cloud.firestore {
       // Drivers can update only tracking/status fields (for their own assigned route)
       allow update: if isDriver()
         && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['driverLocation', 'status', 'updatedAt', 'resolvedAt', 'resolvedBy']);
+          .hasOnly(['driverLocation', 'status', 'updatedAt', 'resolvedAt', 'resolvedBy', 'binSequence', 'removedBins']);
 
       // Admin can update any field
       allow update: if isAdmin();

@@ -9,6 +9,7 @@ import {
   orderBy,
   getDoc
 } from 'firebase/firestore';
+import { autoAssignBinToRoute } from './routeService.js';
 
 /**
  * Update bin fill level and status
@@ -44,13 +45,25 @@ export const updateBinLevel = async (binData) => {
     }
 
     const binDoc = snapshot.docs[0];
+    const prevStatus = binDoc.data().status;
+
     await updateDoc(binDoc.ref, updatedData);
+
+    // Auto-assign to routes when bin becomes full/high.
+    // Only trigger when crossing into full.
+    if (prevStatus !== 'full' && status === 'full') {
+      try {
+        await autoAssignBinToRoute(binData.binID);
+      } catch (e) {
+        console.error('Auto-assign route failed:', e?.message || e);
+      }
+    }
 
     return {
       success: true,
       data: updatedData,
       docId: binDoc.id,
-      statusChanged: binDoc.data().status !== status
+      statusChanged: prevStatus !== status
     };
   } catch (error) {
     console.error('Error updating bin level:', error);

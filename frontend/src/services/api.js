@@ -55,12 +55,42 @@ export const getBins = async () => {
   }
 };
 
-// Update bin fill level
-export const updateBin = async (binId, fillLevel) => {
+// Update bin fill level (prefers server API if configured, falls back to direct Firestore)
+export const updateBin = async (binDocId, fillLevel) => {
   try {
-    const binRef = doc(db, 'bins', binId);
+    requireSignedIn();
+
+    // If a backend is running, use it so auto-route assignment can happen.
+    // Set VITE_API_BASE_URL in frontend env to enable.
+    const baseUrl = import.meta?.env?.VITE_API_BASE_URL;
+    if (baseUrl) {
+      // Need the binID for server API
+      const snap = await getDoc(doc(db, 'bins', binDocId));
+      if (!snap.exists()) throw new Error('Bin not found');
+      const bin = snap.data();
+
+      const res = await fetch(`${baseUrl}/api/bins/update-level`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          binID: bin.binID,
+          fillLevel: parseInt(fillLevel, 10),
+          location: bin.location,
+        }),
+      });
+
+      if (!res.ok) {
+        const txt = await res.text();
+        throw new Error(txt || 'Server update failed');
+      }
+
+      return { success: true };
+    }
+
+    // Fallback: direct Firestore update
+    const binRef = doc(db, 'bins', binDocId);
     await updateDoc(binRef, {
-      fillLevel: parseInt(fillLevel),
+      fillLevel: parseInt(fillLevel, 10),
       lastUpdated: new Date().toISOString(),
     });
     return { success: true };
@@ -260,4 +290,25 @@ export async function resolveRouteAndMarkBinsCollected(routeId) {
   }
 
   await batch.commit();
+}
+
+// Remove a bin from a route's binSequence (driver/admin)
+export async function removeBinFromRoute(routeId, binIdToRemove) {
+  requireSignedIn();
+  if (!routeId) throw new Error('routeId is required');
+  if (!binIdToRemove) throw new Error('binId is required');
+
+  const routeRef = doc(db, 'routes', routeId);
+  const routeSnap = await getDoc(routeRef);
+  if (!routeSnap.exists()) throw new Error('Route not found');
+
+  const route = routeSnap.data();
+  const seq = Array.isArray(route.binSequence) ? route.binSequence : [];
+  const nextSeq = seq.filter((b) => b !== binIdToRemove);
+
+  await updateDoc(routeRef, {
+    binSequence: nextSeq,
+    updatedAt: new Date().toISOString(),
+    removedBins: [...(route.removedBins || []), { binId: binIdToRemove, at: new Date().toISOString(), by: auth.currentUser.uid }],
+  });
 }

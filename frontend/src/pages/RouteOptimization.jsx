@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, CircleMarker, Tooltip } from 'react-leaflet';
 import L from 'leaflet';
-import { getOptimizedRoute, getRoutes, getBins, subscribeToRoute, updateRouteDriverLocation, resolveRouteAndMarkBinsCollected } from '../services/api';
+import { getOptimizedRoute, getRoutes, getBins, subscribeToRoute, updateRouteDriverLocation, resolveRouteAndMarkBinsCollected, removeBinFromRoute } from '../services/api';
 import { auth, db } from '../services/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 
@@ -32,6 +32,7 @@ function RouteOptimization() {
   const [currentRole, setCurrentRole] = useState('user');
   const watchIdRef = useRef(null);
   const unsubRouteRef = useRef(null);
+  const [removingBinId, setRemovingBinId] = useState(null);
 
   useEffect(() => {
     loadRouteData();
@@ -289,6 +290,23 @@ function RouteOptimization() {
     }
   }
 
+  async function handleRemoveBin(binId) {
+    if (!activeRoute?.id) return;
+    const ok = confirm(`Remove ${binId} from this truck's route?`);
+    if (!ok) return;
+
+    try {
+      setRemovingBinId(binId);
+      await removeBinFromRoute(activeRoute.id, binId);
+      // activeRoute will refresh via subscription
+    } catch (e) {
+      console.error(e);
+      alert(e?.message || 'Failed to remove bin from route');
+    } finally {
+      setRemovingBinId(null);
+    }
+  }
+
   if (loading) {
     return (
       <div className="page">
@@ -497,11 +515,28 @@ function RouteOptimization() {
                 <h4>Collection Sequence</h4>
                 <div className="bin-sequence-list">
                   {activeRoute.binSequence.map((binId, index) => (
-                    <div key={binId} className="sequence-item">
+                    <label key={binId} className="sequence-item" style={{ cursor: 'pointer' }}>
                       <span className="sequence-number">{index + 1}</span>
-                      <span className="sequence-bin">{binId}</span>
-                    </div>
+                      <span className="sequence-bin" style={{ flex: 1 }}>{binId}</span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: 12, opacity: 0.75 }}>remove</span>
+                        <input
+                          type="checkbox"
+                          disabled={removingBinId === binId}
+                          onChange={(e) => {
+                            // only act when checked
+                            if (e.target.checked) handleRemoveBin(binId);
+                          }}
+                        />
+                      </span>
+                    </label>
                   ))}
+                </div>
+
+                <div style={{ marginTop: 12, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                  <button className="btn" onClick={handleResolveRoute}>
+                    Mark as resolved
+                  </button>
                 </div>
               </div>
             </div>
