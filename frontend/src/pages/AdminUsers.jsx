@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { collection, getDocs, orderBy, query } from 'firebase/firestore';
 import { db } from '../services/firebase';
-import { setUserRole } from '../services/auth';
+import { setUserDriverCode, setUserRole } from '../services/auth';
 
 export default function AdminUsers({ currentUser }) {
   const [users, setUsers] = useState([]);
@@ -43,6 +43,18 @@ export default function AdminUsers({ currentUser }) {
     }
   }
 
+  async function handleDriverCodeChange(uid, driverCode) {
+    try {
+      setSavingUid(uid);
+      await setUserDriverCode(uid, driverCode);
+      await load();
+    } catch (e) {
+      setError(e?.message || 'Failed to update driver code');
+    } finally {
+      setSavingUid(null);
+    }
+  }
+
   if (!isAdmin) {
     return (
       <div className="page">
@@ -73,6 +85,7 @@ export default function AdminUsers({ currentUser }) {
               <th>Email</th>
               <th>Name</th>
               <th>Role</th>
+              <th>Driver Code</th>
               <th>Action</th>
             </tr>
           </thead>
@@ -83,9 +96,19 @@ export default function AdminUsers({ currentUser }) {
                 <td>{u.displayName || '—'}</td>
                 <td>{u.role || 'user'}</td>
                 <td>
+                  <input
+                    className="fill-input"
+                    style={{ width: 160 }}
+                    placeholder="e.g. DRIVER_01"
+                    defaultValue={u.driverCode || ''}
+                    disabled={savingUid === (u.uid || u.id)}
+                    onBlur={(e) => handleDriverCodeChange(u.uid || u.id, e.target.value)}
+                  />
+                </td>
+                <td>
                   <select
                     value={u.role || 'user'}
-                    disabled={savingUid === u.uid}
+                    disabled={savingUid === (u.uid || u.id)}
                     onChange={(e) => handleRoleChange(u.uid || u.id, e.target.value)}
                     className="fill-input"
                     style={{ width: 160 }}
@@ -104,9 +127,10 @@ export default function AdminUsers({ currentUser }) {
       <div className="management-info">
         <h3>Notes</h3>
         <ul>
+          <li><code>driverCode</code> should match <code>routes.driverId</code> (example: <code>DRIVER_01</code>).</li>
           <li>Roles are stored in Firestore collection <code>users</code>.</li>
           <li>Default role for new sign-ins is <code>user</code>.</li>
-          <li>Only admins should be allowed to change roles (see Firestore rules).</li>
+          <li>Only admins should be allowed to change roles/codes (see Firestore rules).</li>
         </ul>
       </div>
     </div>

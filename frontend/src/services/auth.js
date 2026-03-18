@@ -34,6 +34,8 @@ async function upsertUserProfile(user) {
     await setDoc(ref, {
       ...base,
       role: 'user',
+      homeId: user.uid, // default stable home id (can be replaced with a real home/house id later)
+      driverCode: user.uid, // default (admins can set to e.g. DRIVER_01 for actual drivers)
       createdAt: serverTimestamp(),
     });
   } else {
@@ -76,6 +78,22 @@ export async function setUserRole(uid, role) {
     {
       role,
       roleUpdatedAt: serverTimestamp(),
+    },
+    { merge: true }
+  );
+}
+
+export async function setUserDriverCode(uid, driverCode) {
+  if (!uid) throw new Error('uid is required');
+  const code = String(driverCode || '').trim();
+  if (!code) throw new Error('driverCode is required');
+
+  const ref = doc(db, 'users', uid);
+  await setDoc(
+    ref,
+    {
+      driverCode: code,
+      driverCodeUpdatedAt: serverTimestamp(),
     },
     { merge: true }
   );

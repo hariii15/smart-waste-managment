@@ -11,13 +11,24 @@ import {
   where,
   orderBy,
   limit,
+  onSnapshot,
+  getDoc,
+  writeBatch,
+  serverTimestamp,
 } from 'firebase/firestore';
 
-import { db } from './firebase';
+import { auth, db } from './firebase';
+
+function requireSignedIn() {
+  if (!auth.currentUser) {
+    throw new Error('Not authenticated');
+  }
+}
 
 // Get all bins (dedupe by logical binID)
 export const getBins = async () => {
   try {
+    requireSignedIn();
     const querySnapshot = await getDocs(collection(db, 'bins'));
     const raw = querySnapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
 
@@ -62,6 +73,7 @@ export const updateBin = async (binId, fillLevel) => {
 // Get all routes
 export const getRoutes = async () => {
   try {
+    requireSignedIn();
     const querySnapshot = await getDocs(collection(db, 'routes'));
     return querySnapshot.docs.map(doc => ({
       id: doc.id,
@@ -76,6 +88,7 @@ export const getRoutes = async () => {
 // Get optimized route (get the active route)
 export const getOptimizedRoute = async () => {
   try {
+    requireSignedIn();
     const q = query(
       collection(db, 'routes'),
       where('status', '==', 'active'),
@@ -99,6 +112,7 @@ export const getOptimizedRoute = async () => {
 // Get all user reports
 export const getUserReports = async () => {
   try {
+    requireSignedIn();
     const q = query(
       collection(db, 'userReports'),
       orderBy('createdAt', 'desc')
@@ -117,6 +131,7 @@ export const getUserReports = async () => {
 // Create new user report
 export const createUserReport = async (reportData) => {
   try {
+    requireSignedIn();
     const docRef = await addDoc(collection(db, 'userReports'), {
       ...reportData,
       isVerified: false,
@@ -149,3 +164,81 @@ export const getAlerts = async () => {
     throw error;
   }
 };
+
+// Live driver tracking: update current driver's location for a route
+export async function updateRouteDriverLocation(routeId, location) {
+  requireSignedIn();
+  if (!routeId) throw new Error('routeId is required');
+  if (!location || typeof location.latitude !== 'number' || typeof location.longitude !== 'number') {
+    throw new Error('location must include latitude/longitude');
+  }
+
+  const ref = doc(db, 'routes', routeId);
+  await updateDoc(ref, {
+    driverLocation: {
+      latitude: location.latitude,
+      longitude: location.longitude,
+      accuracy: location.accuracy ?? null,
+      heading: location.heading ?? null,
+      speed: location.speed ?? null,
+      updatedAt: new Date().toISOString(),
+    },
+  });
+}
+
+// Subscribe to live updates of a route (driverLocation, status, etc.)
+export function subscribeToRoute(routeId, onChange, onError) {
+  requireSignedIn();
+  const ref = doc(db, 'routes', routeId);
+  return onSnapshot(
+    ref,
+    (snap) => {
+      onChange?.(snap.exists() ? { id: snap.id, ...snap.data() } : null);
+    },
+    (err) => {
+      onError?.(err);
+    }
+  );
+}
+
+// Resolve/complete a route and mark bins as collected.
+// NOTE: This uses a batched write so route + bins update together.
+export async function resolveRouteAndMarkBinsCollected(routeId) {
+  requireSignedIn();
+  if (!routeId) throw new Error('routeId is required');
+
+  const routeRef = doc(db, 'routes', routeId);
+  const routeSnap = await getDoc(routeRef);
+  if (!routeSnap.exists()) throw new Error('Route not found');
+
+  const route = routeSnap.data();
+  const sequence = Array.isArray(route.binSequence) ? route.binSequence : [];
+
+  const batch = writeBatch(db);
+
+  batch.update(routeRef, {
+    status: 'completed',
+    resolvedAt: new Date().toISOString(),
+    resolvedBy: auth.currentUser.uid,
+    updatedAt: new Date().toISOString(),
+  });
+
+  // For each binID in the sequence, find a matching doc by binID and set it to empty.
+  // (This mirrors server routeService behavior.)
+  for (const binID of sequence) {
+    const q = query(collection(db, 'bins'), where('binID', '==', binID), limit(1));
+    const snap = await getDocs(q);
+    if (!snap.empty) {
+      const binDoc = snap.docs[0];
+      batch.update(binDoc.ref, {
+        status: 'empty',
+        fillLevel: 0,
+        lastUpdated: new Date().toISOString(),
+        collectedAt: new Date().toISOString(),
+        collectedBy: auth.currentUser.uid,
+      });
+    }
+  }
+
+  await batch.commit();
+}

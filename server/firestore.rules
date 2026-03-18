@@ -10,48 +10,80 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // Role is read from the user's profile doc (no custom claims required)
+    function role() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    function isUser() {
+      return signedIn() && (role() == 'user' || role() == 'driver' || role() == 'admin');
+    }
+
     function isAdmin() {
-      return signedIn() && request.auth.token.role == 'admin';
+      return signedIn() && role() == 'admin';
+    }
+
+    function isDriver() {
+      return signedIn() && (role() == 'driver' || role() == 'admin');
     }
 
     // Users collection (profiles + roles)
     match /users/{uid} {
-      // Users can read their own profile
-      allow read: if signedIn() && request.auth.uid == uid;
+      // Prevent leaking the full user list to regular users.
+      // Admin can list/read all; user can read self.
+      allow list: if isAdmin();
+      allow get: if signedIn() && request.auth.uid == uid;
 
       // Users can create their own profile doc
       allow create: if signedIn() && request.auth.uid == uid;
 
-      // Users can update their own non-role fields; role needs admin
-      allow update: if signedIn() && request.auth.uid == uid && !('role' in request.resource.data.diff(resource.data).affectedKeys());
+      // Users can update their own non-role fields
+      allow update: if signedIn() && request.auth.uid == uid
+        && !('role' in request.resource.data.diff(resource.data).affectedKeys());
+
+      // Admin can update any user (including role / driverCode)
       allow update: if isAdmin();
 
       allow delete: if isAdmin();
     }
 
-    // Allow read/write access to bins collection
+    // Public/limited stats documents for UI (e.g., show "number of drivers available")
+    // Put aggregated numbers here instead of letting users query /users.
+    match /stats/{docId} {
+      // Any signed-in user can read stats for dynamic rendering.
+      allow get, list: if isUser();
+      // Only admin can write/update stats.
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Bins: only drivers/admins can read/write
     match /bins/{binId} {
-      allow read, write: if true; // For development - open access
-      // In production, you might want:
-      // allow read: if true; // Public read access for display
-      // allow write: if request.auth != null; // Only authenticated users can write
+      allow read, write: if isDriver();
     }
 
-    // Allow read/write access to routes collection  
+    // Routes: only drivers/admins can read/write
     match /routes/{routeId} {
-      allow read, write: if true; // For development - open access
-      // In production, you might want:
-      // allow read: if request.auth != null && request.auth.token.role == 'driver';
-      // allow write: if request.auth != null && request.auth.token.role == 'admin';
+      // Drivers/admins can read routes
+      allow read: if isDriver();
+
+      // Admins can write anything
+      allow create, delete: if isAdmin();
+
+      // Drivers can update only tracking/status fields (for their own assigned route)
+      allow update: if isDriver()
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['driverLocation', 'status', 'updatedAt', 'resolvedAt', 'resolvedBy']);
+
+      // Admin can update any field
+      allow update: if isAdmin();
     }
 
-    // Allow read/write access to userReports collection
+    // Reports:
+    // - Anyone signed-in can create
+    // - Only drivers/admins can read/manage (so users can't see route/bin ops)
     match /userReports/{reportId} {
-      allow read, write: if true; // For development - open access  
-      // In production, you might want:
-      // allow read: if request.auth != null;
-      // allow create: if true; // Anyone can create reports
-      // allow update, delete: if request.auth != null && request.auth.token.role == 'admin';
+      allow create: if isUser();
+      allow read, update, delete: if isDriver();
     }
 
     // Default rule: deny access to all other collections

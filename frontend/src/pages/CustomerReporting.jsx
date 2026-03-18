@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getBins, createUserReport } from '../services/api';
+import { auth, db } from '../services/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 
 function CustomerReporting() {
   const [bins, setBins] = useState([]);
@@ -37,10 +39,21 @@ function CustomerReporting() {
       setLoading(true);
       setError(null);
 
+      // Fetch homeId from user profile (optional but recommended)
+      let homeId = null;
+      const uid = auth.currentUser?.uid;
+      if (uid) {
+        const snap = await getDoc(doc(db, 'users', uid));
+        homeId = snap.exists() ? (snap.data()?.homeId || null) : null;
+      }
+
       await createUserReport({
         binId: formData.binId,
         description: formData.message.trim(),
-        reporterName: formData.reporterName.trim() || 'Anonymous'
+        reporterName: formData.reporterName.trim() || 'Anonymous',
+        reporterUid: uid || null,
+        homeId,
+        status: 'open',
       });
 
       setSuccess(true);

@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { getBins, getAlerts } from '../services/api';
 
-function Dashboard() {
+function Dashboard({ isDriver = false /* admin is included in isDriver */, role = 'user' }) {
   const [bins, setBins] = useState([]);
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -9,12 +9,20 @@ function Dashboard() {
 
   useEffect(() => {
     loadDashboardData();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDriver]);
 
   const loadDashboardData = async () => {
     try {
       setLoading(true);
       setError(null);
+
+      // Restriction: only drivers/admins can load bin status + alerts
+      if (!isDriver) {
+        setBins([]);
+        setAlerts([]);
+        return;
+      }
 
       const [binsData, alertsData] = await Promise.all([
         getBins(),
@@ -30,6 +38,22 @@ function Dashboard() {
       setLoading(false);
     }
   };
+
+  const dedupedBins = useMemo(() => {
+    const byBinId = new Map();
+    for (const b of bins) {
+      const key = b.binID || b.id;
+      const existing = byBinId.get(key);
+      if (!existing) {
+        byBinId.set(key, b);
+        continue;
+      }
+      const t1 = Date.parse(existing.lastUpdated || existing.updatedAt || existing.createdAt || 0) || 0;
+      const t2 = Date.parse(b.lastUpdated || b.updatedAt || b.createdAt || 0) || 0;
+      if (t2 >= t1) byBinId.set(key, b);
+    }
+    return Array.from(byBinId.values());
+  }, [bins]);
 
   const getStatusColor = (status, fillLevel) => {
     if (fillLevel >= 90) return 'status-critical';
@@ -64,10 +88,22 @@ function Dashboard() {
     );
   }
 
-  const totalBins = bins.length;
-  const fullBins = bins.filter(bin => bin.fillLevel >= 90).length;
-  const averageFillLevel = bins.length > 0
-    ? Math.round(bins.reduce((sum, bin) => sum + bin.fillLevel, 0) / bins.length)
+  // Restriction: users should not see bin status numbers/overview.
+  if (!isDriver) {
+    return (
+      <div className="page">
+        <h2>Dashboard</h2>
+        <div className="info-message">
+          Limited view for role: <strong>{role}</strong>. Bin status and operational metrics are available to drivers and admins only.
+        </div>
+      </div>
+    );
+  }
+
+  const totalBins = dedupedBins.length;
+  const fullBins = dedupedBins.filter(bin => bin.fillLevel >= 90).length;
+  const averageFillLevel = dedupedBins.length > 0
+    ? Math.round(dedupedBins.reduce((sum, bin) => sum + bin.fillLevel, 0) / dedupedBins.length)
     : 0;
 
   return (
@@ -97,8 +133,8 @@ function Dashboard() {
         <div className="dashboard-section">
           <h3>Bin Status Overview</h3>
           <div className="bins-grid">
-            {bins.map(bin => (
-              <div key={bin.id} className="bin-item">
+            {dedupedBins.map(bin => (
+              <div key={bin.binID || bin.id} className="bin-item">
                 <div className="bin-header">
                   <span className="bin-id">{bin.binID}</span>
                   <span className={`bin-status ${getStatusColor(bin.status, bin.fillLevel)}`}>
