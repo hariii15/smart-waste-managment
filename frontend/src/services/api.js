@@ -1,9 +1,7 @@
 // API Service for Smart Waste Management System
 // Using Firebase Firestore as the backend
 
-import { initializeApp } from 'firebase/app';
 import {
-  getFirestore,
   collection,
   getDocs,
   addDoc,
@@ -12,32 +10,34 @@ import {
   query,
   where,
   orderBy,
-  limit
+  limit,
 } from 'firebase/firestore';
 
-const firebaseConfig = {
-  apiKey: "AIzaSyBkw18RZjt_4MSmeAsyKbfrnsbj-wn67KQ",
-  authDomain: "smart-waste-managment-253c9.firebaseapp.com",
-  projectId: "smart-waste-managment-253c9",
-  storageBucket: "smart-waste-managment-253c9.firebasestorage.app",
-  messagingSenderId: "818038319021",
-  appId: "1:818038319021:web:7436c8f58617a9310b6324",
-  measurementId: "G-Y53H9WXP22"
-};
+import { db } from './firebase';
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-
-// API Endpoints (Firebase Firestore operations)
-
-// Get all bins
+// Get all bins (dedupe by logical binID)
 export const getBins = async () => {
   try {
     const querySnapshot = await getDocs(collection(db, 'bins'));
-    return querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
+    const raw = querySnapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+    // Prefer latest updated document for a given binID
+    const byBinId = new Map();
+    for (const b of raw) {
+      const key = b.binID || b.id;
+      const existing = byBinId.get(key);
+
+      if (!existing) {
+        byBinId.set(key, b);
+        continue;
+      }
+
+      const t1 = Date.parse(existing.lastUpdated || existing.updatedAt || existing.createdAt || 0) || 0;
+      const t2 = Date.parse(b.lastUpdated || b.updatedAt || b.createdAt || 0) || 0;
+      if (t2 >= t1) byBinId.set(key, b);
+    }
+
+    return Array.from(byBinId.values());
   } catch (error) {
     console.error('Error fetching bins:', error);
     throw error;
@@ -50,7 +50,7 @@ export const updateBin = async (binId, fillLevel) => {
     const binRef = doc(db, 'bins', binId);
     await updateDoc(binRef, {
       fillLevel: parseInt(fillLevel),
-      lastUpdated: new Date().toISOString()
+      lastUpdated: new Date().toISOString(),
     });
     return { success: true };
   } catch (error) {

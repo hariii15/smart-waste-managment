@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { getBins, updateBin } from '../services/api';
 
 function BinManagement() {
@@ -25,6 +25,22 @@ function BinManagement() {
       setLoading(false);
     }
   };
+
+  const dedupedBins = useMemo(() => {
+    const byBinId = new Map();
+    for (const b of bins) {
+      const key = b.binID || b.id;
+      const existing = byBinId.get(key);
+      if (!existing) {
+        byBinId.set(key, b);
+        continue;
+      }
+      const t1 = Date.parse(existing.lastUpdated || existing.updatedAt || existing.createdAt || 0) || 0;
+      const t2 = Date.parse(b.lastUpdated || b.updatedAt || b.createdAt || 0) || 0;
+      if (t2 >= t1) byBinId.set(key, b);
+    }
+    return Array.from(byBinId.values());
+  }, [bins]);
 
   const handleUpdateFillLevel = async (binId) => {
     if (!newFillLevel || newFillLevel < 0 || newFillLevel > 100) {
@@ -93,23 +109,13 @@ function BinManagement() {
             </tr>
           </thead>
           <tbody>
-            {bins.map(bin => (
-              <tr key={bin.id}>
-                <td>{bin.binID}</td>
-                <td>{bin.zone || 'N/A'}</td>
+            {dedupedBins.map(bin => (
+              <tr key={bin.binID || bin.id}>
+                <td>{bin.binID || bin.id}</td>
+                <td>{bin.zone}</td>
+                <td>{bin.fillLevel}%</td>
                 <td>
-                  <div className="fill-display">
-                    <div className="fill-bar">
-                      <div
-                        className="fill-level"
-                        style={{ width: `${bin.fillLevel}%` }}
-                      ></div>
-                    </div>
-                    <span className="fill-percentage">{bin.fillLevel}%</span>
-                  </div>
-                </td>
-                <td>
-                  <span className={`status-badge ${getStatusColor(bin.status, bin.fillLevel)}`}>
+                  <span className={`status ${getStatusColor(bin.status, bin.fillLevel)}`}>
                     {getStatusText(bin.status, bin.fillLevel)}
                   </span>
                 </td>
